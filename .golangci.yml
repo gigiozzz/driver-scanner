@@ -1,0 +1,19 @@
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - gosimple
+    - ineffassign
+    - revive
+
+linters-settings:
+  revive:
+    rules:
+      - name: exported
+        arguments:
+          - disableStutteringCheck
+
+run:
+  timeout: 5m

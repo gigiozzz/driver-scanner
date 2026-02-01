@@ -3,6 +3,7 @@
 
 # Test coverage
 .coverage/
+.reports/
 
 # IDE
 .idea/

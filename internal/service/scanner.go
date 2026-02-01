@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/dustin/go-humanize"
+	"github.com/rs/zerolog/log"
 
 	"github.com/gigiozzz/driver-scanner/internal/device"
 )
@@ -42,23 +43,39 @@ func NewDeviceScanner(deviceProvider device.BlockDeviceProvider, mountProvider d
 // Scan retrieves block devices from lsblk, enriches them with mount info,
 // and applies filters.
 func (s *DeviceScanner) Scan(filter ScanFilter) ([]device.BlockDevice, error) {
+	log.Info().Msg("starting device scan")
+
 	devices, err := s.deviceProvider.List()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list devices: %w", err)
 	}
+	log.Info().Int("deviceCount", len(devices)).Msg("block devices discovered")
 
 	mountEntries, err := s.mountProvider.GetMounts()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get mount info: %w", err)
 	}
+	log.Debug().Int("count", len(mountEntries)).Msg("mount entries retrieved")
 
 	mountsBySource := buildMountsBySource(mountEntries)
 	enrichDevicesWithMountInfo(devices, mountsBySource)
+
+	log.Info().
+		Int("total", len(devices)).
+		Str("fstype", filter.FSType).
+		Str("minSize", filter.MinSize).
+		Str("mountPoint", filter.MountPoint).
+		Msg("applying filters")
 
 	filtered, err := applyFilters(devices, filter)
 	if err != nil {
 		return nil, err
 	}
+
+	log.Info().
+		Int("before", len(devices)).
+		Int("after", len(filtered)).
+		Msg("filtering complete")
 
 	return filtered, nil
 }
@@ -81,6 +98,10 @@ func enrichDevicesWithMountInfo(devices []device.BlockDevice, mountsBySource map
 		}
 		mountEntry, found := mountsBySource[devices[i].Path]
 		if found {
+			log.Debug().
+				Str("device", devices[i].Path).
+				Str("mountpoint", mountEntry.MountPoint).
+				Msg("enriched device with mount info")
 			devices[i].MountPoint = mountEntry.MountPoint
 		}
 	}
@@ -100,12 +121,15 @@ func applyFilters(devices []device.BlockDevice, filter ScanFilter) ([]device.Blo
 	result := make([]device.BlockDevice, 0, len(devices))
 	for _, dev := range devices {
 		if filter.FSType != "" && !strings.EqualFold(dev.FSType, filter.FSType) {
+			log.Debug().Str("device", dev.Path).Str("fstype", dev.FSType).Msg("filtered out by fstype")
 			continue
 		}
 		if minSizeBytes > 0 && dev.DeviceSizeBytes < minSizeBytes {
+			log.Debug().Str("device", dev.Path).Uint64("size", dev.DeviceSizeBytes).Msg("filtered out by min-size")
 			continue
 		}
 		if filter.MountPoint != "" && !strings.Contains(dev.MountPoint, filter.MountPoint) {
+			log.Debug().Str("device", dev.Path).Str("mountpoint", dev.MountPoint).Msg("filtered out by mount-point")
 			continue
 		}
 		result = append(result, dev)

@@ -8,7 +8,13 @@ RUN go mod download
 COPY . .
 
 ARG VERSION=dev
-RUN CGO_ENABLED=0 go build -ldflags "-X main.version=${VERSION}" -o /driver-scanner ./cmd
+ARG COMMIT_HASH=unknown
+ARG BUILD_DATE=unknown
+RUN CGO_ENABLED=0 go build -ldflags "\
+  -X github.com/gigiozzz/driver-scanner/internal/command.Version=${VERSION} \
+  -X github.com/gigiozzz/driver-scanner/internal/command.CommitHash=${COMMIT_HASH} \
+  -X github.com/gigiozzz/driver-scanner/internal/command.BuildDate=${BUILD_DATE}" \
+  -o /driver-scanner ./cmd
 
 FROM alpine:3.22.3
 

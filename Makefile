@@ -1,10 +1,14 @@
 BINARY_NAME := driver-scanner
 VERSION ?= dev
+COMMIT_HASH := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 REGISTRY ?= docker.io
 IMAGE_NAME ?= $(REGISTRY)/$(BINARY_NAME)
 BIN_DIR := .bin
 COVERAGE_DIR := .coverage
 REPORT_DIR := .reports
+LDFLAGS_PKG := github.com/gigiozzz/driver-scanner/internal/command
+LDFLAGS := -X $(LDFLAGS_PKG).Version=$(VERSION) -X $(LDFLAGS_PKG).CommitHash=$(COMMIT_HASH) -X $(LDFLAGS_PKG).BuildDate=$(BUILD_DATE)
 
 .PHONY: help build vet test test-ctrf lint clean docker-build docker-push
 
@@ -15,7 +19,7 @@ help:
 ## build: compile the binary with version info injected via ldflags
 build:
 	@mkdir -p $(BIN_DIR)
-	go build -ldflags "-X main.version=$(VERSION)" -o $(BIN_DIR)/$(BINARY_NAME) ./cmd
+	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY_NAME) ./cmd
 
 ## vet: run go vet static analysis
 vet:
@@ -54,7 +58,7 @@ clean:
 
 ## docker-build: build docker image with multi-stage (depends on test)
 docker-build: test
-	docker build --build-arg VERSION=$(VERSION) -t $(IMAGE_NAME):$(VERSION) .
+	docker build --build-arg VERSION=$(VERSION) --build-arg COMMIT_HASH=$(COMMIT_HASH) --build-arg BUILD_DATE=$(BUILD_DATE) -t $(IMAGE_NAME):$(VERSION) .
 
 ## docker-push: push docker image to registry
 docker-push:

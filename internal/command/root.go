@@ -16,7 +16,7 @@ var (
 )
 
 // NewRootCommand creates the root cobra command for driver-scanner.
-func NewRootCommand(scanner service.Scanner, version string, goVersion string) *cobra.Command {
+func NewRootCommand(scanner service.Scanner) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "driver-scanner",
 		Short: "Scan and list block devices with mount and filesystem information",
@@ -34,7 +34,7 @@ func NewRootCommand(scanner service.Scanner, version string, goVersion string) *
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
 
 	rootCmd.AddCommand(newScanCommand(scanner))
-	rootCmd.AddCommand(newVersionCommand(version, goVersion))
+	rootCmd.AddCommand(newVersionCommand())
 
 	return rootCmd
 }

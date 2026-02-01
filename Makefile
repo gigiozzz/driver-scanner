@@ -44,9 +44,9 @@ test-ctrf:
 	@echo "🔄 Running tests with CTRF reporter..."
 	gotestsum --jsonfile $(REPORT_DIR)/gotestsum.json && go-ctrf-json-reporter -o $(REPORT_DIR)/ctrf-report.json < $(REPORT_DIR)/gotestsum.json
 
-## lint: run golangci-lint
+## lint: run golangci-lint v2 via go run (no install required)
 lint:
-	golangci-lint run ./...
+	go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.8.0 run ./...
 
 ## clean: remove built binary and coverage artifacts
 clean:

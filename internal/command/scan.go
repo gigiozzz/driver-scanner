@@ -8,6 +8,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/dustin/go-humanize"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
 	"github.com/gigiozzz/driver-scanner/internal/device"
@@ -22,6 +23,12 @@ func newScanCommand(scanner service.Scanner) *cobra.Command {
 		Use:   "scan",
 		Short: "Scan block devices and display their information",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log.Info().
+				Str("fstype", filter.FSType).
+				Str("minSize", filter.MinSize).
+				Str("mountPoint", filter.MountPoint).
+				Msg("scan command invoked")
+
 			processedFilter, err := buildScanFilter(filter)
 			if err != nil {
 				return err
@@ -51,18 +58,24 @@ func buildScanFilter(raw service.ScanFilter) (service.ScanFilter, error) {
 // validateScanFilter validates the filter values before executing the scan.
 func validateScanFilter(filter service.ScanFilter) error {
 	if filter.FSType != "" {
+		log.Debug().Str("fstype", filter.FSType).Msg("validating filesystem type")
 		supportedTypes, err := readSupportedFileSystems()
 		if err != nil {
+			log.Debug().Err(err).Msg("cannot read supported filesystems")
 			return fmt.Errorf("cannot validate fstype: %w", err)
 		}
 		if !supportedTypes[strings.ToLower(filter.FSType)] {
+			log.Debug().Str("fstype", filter.FSType).Msg("unsupported filesystem type")
 			return fmt.Errorf("unsupported filesystem type %q, supported: %s",
 				filter.FSType, joinMapKeys(supportedTypes))
 		}
+		log.Debug().Str("fstype", filter.FSType).Msg("filesystem type is valid")
 	}
 
 	if filter.MinSize != "" {
+		log.Debug().Str("minSize", filter.MinSize).Msg("validating min-size")
 		if _, err := humanize.ParseBytes(filter.MinSize); err != nil {
+			log.Debug().Str("minSize", filter.MinSize).Err(err).Msg("invalid min-size value")
 			return fmt.Errorf("invalid min-size value %q: %w", filter.MinSize, err)
 		}
 	}
@@ -72,6 +85,8 @@ func validateScanFilter(filter service.ScanFilter) error {
 
 // readSupportedFileSystems reads /proc/filesystems and returns a set of supported types.
 func readSupportedFileSystems() (map[string]bool, error) {
+	log.Debug().Msg("reading /proc/filesystems")
+
 	file, err := os.Open("/proc/filesystems")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open /proc/filesystems: %w", err)
@@ -95,6 +110,7 @@ func readSupportedFileSystems() (map[string]bool, error) {
 		return nil, fmt.Errorf("failed to read /proc/filesystems: %w", err)
 	}
 
+	log.Debug().Int("count", len(supported)).Msg("supported filesystems loaded")
 	return supported, nil
 }
 
@@ -112,6 +128,11 @@ func runScan(scanner service.Scanner, filter service.ScanFilter) error {
 	devices, err := scanner.Scan(filter)
 	if err != nil {
 		return fmt.Errorf("scan failed: %w", err)
+	}
+
+	log.Info().Int("deviceCount", len(devices)).Msg("scan complete")
+	if len(devices) == 0 {
+		log.Warn().Msg("no devices matched the filter criteria")
 	}
 
 	printDeviceTable(devices)

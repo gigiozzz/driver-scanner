@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/moby/sys/mountinfo"
+	"github.com/rs/zerolog/log"
 )
 
 // MountEntry represents a single mount point with its metadata.
@@ -34,8 +35,11 @@ func NewSystemMountInfoProvider() *SystemMountInfoProvider {
 
 // GetMounts reads /proc/self/mountinfo and returns all mount entries.
 func (p *SystemMountInfoProvider) GetMounts() ([]MountEntry, error) {
+	log.Debug().Msg("reading mount info from /proc/self/mountinfo")
+
 	mounts, err := mountinfo.GetMounts(nil)
 	if err != nil {
+		log.Debug().Err(err).Msg("failed to get mount info")
 		return nil, fmt.Errorf("failed to get mount info: %w", err)
 	}
 
@@ -48,5 +52,7 @@ func (p *SystemMountInfoProvider) GetMounts() ([]MountEntry, error) {
 			Options:    m.Options,
 		})
 	}
+
+	log.Debug().Int("count", len(entries)).Msg("mount entries loaded")
 	return entries, nil
 }

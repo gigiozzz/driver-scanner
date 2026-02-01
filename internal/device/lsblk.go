@@ -6,6 +6,7 @@ import (
 	"os/exec"
 
 	"github.com/dustin/go-humanize"
+	"github.com/rs/zerolog/log"
 )
 
 // lsblkOutput maps the top-level JSON structure returned by lsblk --json.
@@ -47,16 +48,23 @@ func NewLsblkProvider() *LsblkProvider {
 
 // List executes lsblk with -b (bytes) and returns the parsed block devices.
 func (l *LsblkProvider) List() ([]BlockDevice, error) {
-	out, err := exec.Command(
-		"lsblk", "--json", "-b",
+	args := []string{
+		"--json", "-b",
 		"-o", "NAME,PATH,UUID,SERIAL,FSTYPE,TYPE,LABEL,MOUNTPOINT,SIZE,FSSIZE,FSAVAIL",
-	).Output()
+	}
+	log.Debug().Strs("args", args).Msg("executing lsblk")
+
+	out, err := exec.Command("lsblk", args...).Output()
 	if err != nil {
+		log.Debug().Err(err).Msg("lsblk execution failed")
 		return nil, fmt.Errorf("lsblk execution failed: %w", err)
 	}
 
+	log.Debug().Int("bytes", len(out)).Msg("lsblk raw output received")
+
 	var raw lsblkOutput
 	if err := json.Unmarshal(out, &raw); err != nil {
+		log.Debug().Err(err).Msg("lsblk JSON parsing failed")
 		return nil, fmt.Errorf("lsblk JSON parsing failed: %w", err)
 	}
 
@@ -79,6 +87,8 @@ func (l *LsblkProvider) List() ([]BlockDevice, error) {
 			FileSystemAvail:      humanizeBytes(entry.FSAvail),
 		})
 	}
+
+	log.Debug().Int("deviceCount", len(devices)).Msg("block devices parsed from lsblk")
 	return devices, nil
 }
 
